@@ -1,0 +1,41 @@
+name: Update tax config
+
+on:
+  schedule:
+    # Runs every Monday at 8:00 UTC (10:00 Paris time)
+    - cron: '0 8 * * 1'
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run scraper
+        id: scrape
+        run: |
+          python update_config.py
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Commit and push if changed
+        if: steps.scrape.outcome == 'success'
+        run: |
+          git config user.name "tax-config-bot"
+          git config user.email "bot@tax-config"
+          git add tax_config.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            YEAR=$(python -c "import json; print(json.load(open('tax_config.json'))['year'])")
+            git commit -m "🔄 Mise à jour automatique — Barème $YEAR"
+            git push
+          fi
