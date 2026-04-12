@@ -1,0 +1,43 @@
+{
+  "year": 2026,
+  "revenueYear": 2025,
+  "label": "Barème 2026 — Revenus 2025",
+  "legalReference": "Loi de finances du 19/02/2026",
+  "brackets": [
+    { "upperBound": 11600, "rate": 0.00 },
+    { "upperBound": 29579, "rate": 0.11 },
+    { "upperBound": 84577, "rate": 0.30 },
+    { "upperBound": 181917, "rate": 0.41 },
+    { "upperBound": null, "rate": 0.45 }
+  ],
+  "ceilingPerHalfPart": 1807,
+  "ceilingParentIsole": 4262,
+  "decote": {
+    "singleThreshold": 1982,
+    "coupleThreshold": 3277,
+    "singleForfait": 897,
+    "coupleForfait": 1483,
+    "coefficient": 0.4525
+  },
+  "deduction": {
+    "rate": 0.10,
+    "min": 504,
+    "max": 14426
+  },
+  "credits": {
+    "emploiDomicile": {
+      "rate": 0.50,
+      "baseCap": 12000,
+      "perChildBonus": 1500,
+      "maxCap": 15000
+    },
+    "donsAide": {
+      "rate": 0.75,
+      "cap": 1000
+    },
+    "donsAutres": {
+      "rate": 0.66,
+      "incomePercentCap": 0.20
+    }
+  }
+}
