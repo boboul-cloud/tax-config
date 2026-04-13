@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barème fiscal — Éditeur</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #e6edf3; --text2: #8b949e; --accent: #58a6ff;
+  --green: #3fb950; --orange: #d29922; --red: #f85149;
+  --radius: 12px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 16px; }
+h1 { font-size: 1.5rem; text-align: center; margin-bottom: 4px; }
+.subtitle { text-align: center; color: var(--text2); font-size: 0.85rem; margin-bottom: 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+.card h2 { font-size: 1rem; color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.card h2::before { content: ''; display: inline-block; width: 4px; height: 16px; background: var(--accent); border-radius: 2px; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 0.8rem; color: var(--text2); margin-bottom: 4px; }
+.field input, .field select { width: 100%; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.95rem; outline: none; }
+.field input:focus { border-color: var(--accent); }
+.field .hint { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
+.bracket-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; margin-bottom: 8px; }
+.bracket-row input { padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 0.9rem; }
+.bracket-row input:focus { border-color: var(--accent); }
+.bracket-label { font-size: 0.75rem; color: var(--text2); margin-bottom: 2px; }
+.btn-remove { background: none; border: none; color: var(--red); font-size: 1.2rem; cursor: pointer; padding: 8px; border-radius: 8px; }
+.btn-remove:hover { background: rgba(248,81,73,0.1); }
+.btn-add { display: inline-flex; align-items: center; gap: 4px; background: none; border: 1px dashed var(--border); color: var(--accent); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; margin-top: 4px; }
+.btn-add:hover { border-color: var(--accent); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.actions { position: sticky; bottom: 0; background: var(--bg); padding: 12px 0; display: flex; gap: 10px; }
+.btn { flex: 1; padding: 14px; border: none; border-radius: var(--radius); font-size: 1rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: linear-gradient(135deg, var(--accent), #1f6feb); color: #fff; }
+.btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 20px; border-radius: 10px; font-size: 0.9rem; font-weight: 500; z-index: 100; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.toast.success { background: var(--green); color: #fff; }
+.toast.error { background: var(--red); color: #fff; }
+.toast.info { background: var(--accent); color: #fff; }
+.token-section { display: flex; gap: 8px; align-items: end; }
+.token-section input { flex: 1; }
+.token-section button { padding: 10px 16px; background: var(--accent); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; white-space: nowrap; }
+.json-preview { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-family: 'SF Mono', monospace; font-size: 0.8rem; color: var(--green); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; display: none; }
+.toggle-preview { background: none; border: 1px solid var(--border); color: var(--text2); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.8rem; margin-bottom: 8px; }
+.toggle-preview:hover { border-color: var(--accent); color: var(--accent); }
+.status { text-align: center; padding: 8px; font-size: 0.8rem; color: var(--text2); }
+.status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.dot-green { background: var(--green); }
+.dot-orange { background: var(--orange); }
+</style>
+</head>
+<body>
+
+<h1>⚙️ Éditeur de barème fiscal</h1>
+<p class="subtitle">Modifier le fichier <code>tax_config.json</code> du repo GitHub</p>
+
+<div id="status" class="status"></div>
+
+<!-- Token -->
+<div class="card">
+  <h2>Authentification GitHub</h2>
+  <div class="field">
+    <label>Personal Access Token (fine-grained, permission Contents: Read & Write)</label>
+    <div class="token-section">
+      <input type="password" id="token" placeholder="github_pat_...">
+      <button onclick="saveToken()">Enregistrer</button>
+    </div>
+    <div class="hint">Stocké localement dans votre navigateur. Nécessaire pour sauvegarder.</div>
+  </div>
+</div>
+
+<!-- General -->
+<div class="card">
+  <h2>Informations générales</h2>
+  <div class="row2">
+    <div class="field">
+      <label>Année du barème</label>
+      <input type="number" id="year">
+    </div>
+    <div class="field">
+      <label>Année des revenus</label>
+      <input type="number" id="revenueYear">
+    </div>
+  </div>
+  <div class="field">
+    <label>Libellé</label>
+    <input type="text" id="label">
+  </div>
+  <div class="field">
+    <label>Référence légale</label>
+    <input type="text" id="legalReference">
+  </div>
+</div>
+
+<!-- Brackets -->
+<div class="card">
+  <h2>Tranches d'imposition</h2>
+  <div id="brackets"></div>
+  <button class="btn-add" onclick="addBracket()">+ Ajouter une tranche</button>
+</div>
+
+<!-- Plafonnement -->
+<div class="card">
+  <h2>Plafonnement du quotient familial</h2>
+  <div class="row2">
+    <div class="field">
+      <label>Par demi-part (€)</label>
+      <input type="number" step="0.01" id="ceilingPerHalfPart">
+    </div>
+    <div class="field">
+      <label>Parent isolé (€)</label>
+      <input type="number" step="0.01" id="ceilingParentIsole">
+    </div>
+  </div>
+</div>
+
+<!-- Décote -->
+<div class="card">
+  <h2>Décote</h2>
+  <div class="row2">
+    <div class="field">
+      <label>Seuil célibataire (€)</label>
+      <input type="number" step="0.01" id="decote_singleThreshold">
+    </div>
+    <div class="field">
+      <label>Seuil couple (€)</label>
+      <input type="number" step="0.01" id="decote_coupleThreshold">
+    </div>
+  </div>
+  <div class="row3">
+    <div class="field">
+      <label>Forfait célibataire (€)</label>
+      <input type="number" step="0.01" id="decote_singleForfait">
+    </div>
+    <div class="field">
+      <label>Forfait couple (€)</label>
+      <input type="number" step="0.01" id="decote_coupleForfait">
+    </div>
+    <div class="field">
+      <label>Coefficient</label>
+      <input type="number" step="0.0001" id="decote_coefficient">
+    </div>
+  </div>
+</div>
+
+<!-- Déduction -->
+<div class="card">
+  <h2>Abattement (frais professionnels)</h2>
+  <div class="row3">
+    <div class="field">
+      <label>Taux (%)</label>
+      <input type="number" step="0.01" id="deduction_rate">
+      <div class="hint">Ex: 10 pour 10%</div>
+    </div>
+    <div class="field">
+      <label>Minimum (€)</label>
+      <input type="number" step="0.01" id="deduction_min">
+    </div>
+    <div class="field">
+      <label>Maximum (€)</label>
+      <input type="number" step="0.01" id="deduction_max">
+    </div>
+  </div>
+</div>
+
+<!-- Credits -->
+<div class="card">
+  <h2>Crédits & réductions d'impôt</h2>
+
+  <p style="color:var(--text2);font-size:0.85rem;margin-bottom:10px;">Emploi à domicile</p>
+  <div class="row2">
+    <div class="field">
+      <label>Taux (%)</label>
+      <input type="number" step="0.01" id="emploi_rate">
+    </div>
+    <div class="field">
+      <label>Plafond de base (€)</label>
+      <input type="number" step="0.01" id="emploi_baseCap">
+    </div>
+  </div>
+  <div class="row2">
+    <div class="field">
+      <label>Bonus par enfant (€)</label>
+      <input type="number" step="0.01" id="emploi_perChildBonus">
+    </div>
+    <div class="field">
+      <label>Plafond maximum (€)</label>
+      <input type="number" step="0.01" id="emploi_maxCap">
+    </div>
+  </div>
+
+  <p style="color:var(--text2);font-size:0.85rem;margin:14px 0 10px;">Dons — aide aux personnes</p>
+  <div class="row2">
+    <div class="field">
+      <label>Taux (%)</label>
+      <input type="number" step="0.01" id="donsAide_rate">
+    </div>
+    <div class="field">
+      <label>Plafond (€)</label>
+      <input type="number" step="0.01" id="donsAide_cap">
+    </div>
+  </div>
+
+  <p style="color:var(--text2);font-size:0.85rem;margin:14px 0 10px;">Dons — autres organismes</p>
+  <div class="row2">
+    <div class="field">
+      <label>Taux (%)</label>
+      <input type="number" step="0.01" id="donsAutres_rate">
+    </div>
+    <div class="field">
+      <label>Plafond (% du revenu)</label>
+      <input type="number" step="0.01" id="donsAutres_incomePercentCap">
+      <div class="hint">Ex: 20 pour 20%</div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview -->
+<div class="card">
+  <button class="toggle-preview" onclick="togglePreview()">👁 Aperçu JSON</button>
+  <pre class="json-preview" id="preview"></pre>
+</div>
+
+<!-- Actions -->
+<div class="actions">
+  <button class="btn btn-secondary" onclick="loadRemote()">↻ Recharger</button>
+  <button class="btn btn-primary" id="saveBtn" onclick="saveToGitHub()">💾 Sauvegarder sur GitHub</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const OWNER = 'boboul-cloud';
+const REPO = 'tax-config';
+const FILE = 'tax_config.json';
+const BRANCH = 'main';
+const API = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE}`;
+
+let currentSha = null;
+
+// Token management
+function getToken() { return localStorage.getItem('tax_config_gh_token') || ''; }
+function saveToken() {
+  const t = document.getElementById('token').value.trim();
+  if (!t) return;
+  localStorage.setItem('tax_config_gh_token', t);
+  document.getElementById('token').value = '';
+  toast('Token enregistré', 'success');
+  loadRemote();
+}
+
+// Toast
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// Load config from GitHub
+async function loadRemote() {
+  updateStatus('loading');
+  try {
+    const headers = { Accept: 'application/vnd.github.v3+json' };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await fetch(API + `?ref=${BRANCH}`, { headers });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    currentSha = data.sha;
+    const config = JSON.parse(atob(data.content));
+    populateForm(config);
+    updateStatus('loaded');
+    toast('Barème chargé', 'success');
+  } catch (e) {
+    updateStatus('error');
+    toast('Erreur de chargement: ' + e.message, 'error');
+  }
+}
+
+function updateStatus(state) {
+  const el = document.getElementById('status');
+  if (state === 'loading') el.innerHTML = '⏳ Chargement…';
+  else if (state === 'loaded') el.innerHTML = '<span class="dot dot-green"></span>Connecté au repo GitHub';
+  else if (state === 'error') el.innerHTML = '<span class="dot dot-orange"></span>Mode hors-ligne';
+}
+
+// Populate form from config object
+function populateForm(c) {
+  document.getElementById('year').value = c.year;
+  document.getElementById('revenueYear').value = c.revenueYear;
+  document.getElementById('label').value = c.label;
+  document.getElementById('legalReference').value = c.legalReference;
+  document.getElementById('ceilingPerHalfPart').value = c.ceilingPerHalfPart;
+  document.getElementById('ceilingParentIsole').value = c.ceilingParentIsole;
+
+  // Decote
+  document.getElementById('decote_singleThreshold').value = c.decote.singleThreshold;
+  document.getElementById('decote_coupleThreshold').value = c.decote.coupleThreshold;
+  document.getElementById('decote_singleForfait').value = c.decote.singleForfait;
+  document.getElementById('decote_coupleForfait').value = c.decote.coupleForfait;
+  document.getElementById('decote_coefficient').value = c.decote.coefficient;
+
+  // Deduction (display as percentage)
+  document.getElementById('deduction_rate').value = c.deduction.rate * 100;
+  document.getElementById('deduction_min').value = c.deduction.min;
+  document.getElementById('deduction_max').value = c.deduction.max;
+
+  // Credits
+  document.getElementById('emploi_rate').value = c.credits.emploiDomicile.rate * 100;
+  document.getElementById('emploi_baseCap').value = c.credits.emploiDomicile.baseCap;
+  document.getElementById('emploi_perChildBonus').value = c.credits.emploiDomicile.perChildBonus;
+  document.getElementById('emploi_maxCap').value = c.credits.emploiDomicile.maxCap;
+
+  document.getElementById('donsAide_rate').value = c.credits.donsAide.rate * 100;
+  document.getElementById('donsAide_cap').value = c.credits.donsAide.cap;
+
+  document.getElementById('donsAutres_rate').value = c.credits.donsAutres.rate * 100;
+  document.getElementById('donsAutres_incomePercentCap').value = c.credits.donsAutres.incomePercentCap * 100;
+
+  // Brackets
+  renderBrackets(c.brackets);
+}
+
+// Brackets
+function renderBrackets(brackets) {
+  const container = document.getElementById('brackets');
+  container.innerHTML = '';
+  brackets.forEach((b, i) => {
+    const isLast = i === brackets.length - 1;
+    const row = document.createElement('div');
+    row.className = 'bracket-row';
+    row.innerHTML = `
+      <div>
+        <div class="bracket-label">Plafond (€)</div>
+        <input type="number" class="bracket-upper" value="${b.upperBound ?? ''}" placeholder="${isLast ? '∞ (dernière tranche)' : ''}">
+      </div>
+      <div>
+        <div class="bracket-label">Taux (%)</div>
+        <input type="number" step="0.01" class="bracket-rate" value="${b.rate * 100}">
+      </div>
+      <button class="btn-remove" onclick="this.parentElement.remove()" title="Supprimer">✕</button>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function addBracket() {
+  const container = document.getElementById('brackets');
+  const row = document.createElement('div');
+  row.className = 'bracket-row';
+  row.innerHTML = `
+    <div>
+      <div class="bracket-label">Plafond (€)</div>
+      <input type="number" class="bracket-upper" placeholder="∞ pour la dernière">
+    </div>
+    <div>
+      <div class="bracket-label">Taux (%)</div>
+      <input type="number" step="0.01" class="bracket-rate" value="0">
+    </div>
+    <button class="btn-remove" onclick="this.parentElement.remove()" title="Supprimer">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+// Build config object from form
+function buildConfig() {
+  const brackets = [];
+  document.querySelectorAll('.bracket-row').forEach(row => {
+    const upper = row.querySelector('.bracket-upper').value;
+    const rate = parseFloat(row.querySelector('.bracket-rate').value) / 100;
+    brackets.push({
+      upperBound: upper === '' ? null : parseFloat(upper),
+      rate: rate
+    });
+  });
+
+  return {
+    year: parseInt(document.getElementById('year').value),
+    revenueYear: parseInt(document.getElementById('revenueYear').value),
+    label: document.getElementById('label').value,
+    legalReference: document.getElementById('legalReference').value,
+    brackets,
+    ceilingPerHalfPart: parseFloat(document.getElementById('ceilingPerHalfPart').value),
+    ceilingParentIsole: parseFloat(document.getElementById('ceilingParentIsole').value),
+    decote: {
+      singleThreshold: parseFloat(document.getElementById('decote_singleThreshold').value),
+      coupleThreshold: parseFloat(document.getElementById('decote_coupleThreshold').value),
+      singleForfait: parseFloat(document.getElementById('decote_singleForfait').value),
+      coupleForfait: parseFloat(document.getElementById('decote_coupleForfait').value),
+      coefficient: parseFloat(document.getElementById('decote_coefficient').value)
+    },
+    deduction: {
+      rate: parseFloat(document.getElementById('deduction_rate').value) / 100,
+      min: parseFloat(document.getElementById('deduction_min').value),
+      max: parseFloat(document.getElementById('deduction_max').value)
+    },
+    credits: {
+      emploiDomicile: {
+        rate: parseFloat(document.getElementById('emploi_rate').value) / 100,
+        baseCap: parseFloat(document.getElementById('emploi_baseCap').value),
+        perChildBonus: parseFloat(document.getElementById('emploi_perChildBonus').value),
+        maxCap: parseFloat(document.getElementById('emploi_maxCap').value)
+      },
+      donsAide: {
+        rate: parseFloat(document.getElementById('donsAide_rate').value) / 100,
+        cap: parseFloat(document.getElementById('donsAide_cap').value)
+      },
+      donsAutres: {
+        rate: parseFloat(document.getElementById('donsAutres_rate').value) / 100,
+        incomePercentCap: parseFloat(document.getElementById('donsAutres_incomePercentCap').value) / 100
+      }
+    }
+  };
+}
+
+// JSON preview
+function togglePreview() {
+  const el = document.getElementById('preview');
+  if (el.style.display === 'block') {
+    el.style.display = 'none';
+  } else {
+    el.textContent = JSON.stringify(buildConfig(), null, 2);
+    el.style.display = 'block';
+  }
+}
+
+// Save to GitHub
+async function saveToGitHub() {
+  const token = getToken();
+  if (!token) { toast('Token GitHub requis pour sauvegarder', 'error'); return; }
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sauvegarde…';
+
+  try {
+    const config = buildConfig();
+    const json = JSON.stringify(config, null, 2) + '\n';
+    const content = btoa(unescape(encodeURIComponent(json)));
+
+    const body = {
+      message: `Mise à jour barème ${config.year} (revenus ${config.revenueYear})`,
+      content,
+      branch: BRANCH
+    };
+    if (currentSha) body.sha = currentSha;
+
+    const res = await fetch(API, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+
+    const result = await res.json();
+    currentSha = result.content.sha;
+    toast('Barème sauvegardé sur GitHub !', 'success');
+  } catch (e) {
+    toast('Erreur: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Sauvegarder sur GitHub';
+  }
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  const token = getToken();
+  if (token) document.getElementById('token').placeholder = '••••••••  (déjà enregistré)';
+  loadRemote();
+});
+</script>
+</body>
+</html>
