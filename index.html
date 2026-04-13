@@ -275,7 +275,8 @@ async function loadRemote() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     currentSha = data.sha;
-    const config = JSON.parse(atob(data.content));
+    const bytes = Uint8Array.from(atob(data.content), c => c.charCodeAt(0));
+    const config = JSON.parse(new TextDecoder('utf-8').decode(bytes));
     populateForm(config);
     updateStatus('loaded');
     toast('Barème chargé', 'success');
